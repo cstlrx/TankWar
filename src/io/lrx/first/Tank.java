@@ -1,6 +1,10 @@
 package io.lrx.first;
 
+import java.awt.Graphics;
 import java.awt.Image;
+import java.awt.event.KeyEvent;
+import java.util.ArrayList;
+import java.util.List;
 
 import javax.swing.ImageIcon;
 
@@ -28,12 +32,12 @@ public class Tank {
 	private Image tankCurImage = getTankUImage();
 
 	private int initXPos;// 坦克初始坐标
-	private int initYPos;
+	private final int initYPos = 30;// 标题栏宽度
 	private int curXPos; // 坦克当前坐标
 	private int curYPos;
 
 	private final int minX = 0;
-	private final int minY = 0;
+	private final int minY = 30;// 标题栏宽度
 	private int maxX;
 	private int maxY;
 
@@ -43,7 +47,15 @@ public class Tank {
 	private static final int SPEED = 5;
 	private Direction dir = Direction.U;
 
+	TankClient tc;
+
 	public Tank() {
+	}
+
+	public Tank(TankClient tc) {
+		this.tc = tc;
+		curXPos = initXPos;
+		curYPos = initYPos;
 	}
 
 	public int getCurXPos() {
@@ -128,29 +140,6 @@ public class Tank {
 		return TANK_HEIGHT;
 	}
 
-	// ------------------------------------------------------------
-
-	public void move() {
-		switch (this.dir) {
-		case U:
-			tankCurImage = tankUImage;
-			tankMoveUp();
-			break;
-		case R:
-			tankMoveRight();
-			tankCurImage = tankRImage;
-			break;
-		case D:
-			tankCurImage = tankDImage;
-			tankMoveDown();
-			break;
-		case L:
-			tankCurImage = tankLImage;
-			tankMoveLeft();
-			break;
-		}
-	}
-
 	public Image getTankCurImage() {
 		return tankCurImage;
 	}
@@ -184,6 +173,71 @@ public class Tank {
 		curXPos -= SPEED;
 	}
 
+	// 判断坦克是否在边界位置
+	public boolean isInArea(Direction d) {
+		switch (d) {
+		case L:
+			if (curXPos - SPEED < 0)
+				return false;
+			break;
+		case R:
+			if (curXPos + SPEED + TANK_WIDTH > tc.getWindowWidth())
+				return false;
+			break;
+		case U:
+			if (curYPos - SPEED < 30)
+				return false;
+			break;
+		case D:
+			if (curYPos + SPEED + TANK_HEIGHT > tc.getWindowHeight())
+				return false;
+			break;
+		}
+		// if (curXPos - SPEED < 0 || curXPos + SPEED > tc.getWindowWidth()
+		// || curYPos - SPEED < 0
+		// || curYPos + SPEED > tc.getWindowHeight()) {
+		// return false;
+		// }
+		return true;
+	}
+
+	// ------------------------------------------------------------
+	// tank移动方法
+	public void move() {
+		switch (this.dir) {
+		case U:
+			tankCurImage = tankUImage;
+			// tankMoveUp();
+			if (isInArea(Direction.U))
+				tankMoveUp();
+			break;
+		case R:
+			// tankMoveRight();
+			tankCurImage = tankRImage;
+			if (isInArea(Direction.R))
+				tankMoveRight();
+			break;
+		case D:
+			tankCurImage = tankDImage;
+			// tankMoveDown();
+			if (isInArea(Direction.D))
+				tankMoveDown();
+			break;
+		case L:
+			tankCurImage = tankLImage;
+			// tankMoveLeft();
+			if (isInArea(Direction.L))
+				tankMoveLeft();
+			break;
+		}
+	}
+
+	public void draw(Graphics g) {
+		// 画出坦克
+		g.drawImage(tankCurImage, getCurXPos(), getCurYPos(), getTankWidth(),
+				getTankHeight(), tc.getBackground(), null);
+	}
+
 	public Missile fire() {
 
 		int missileX = this.curXPos;
@@ -215,8 +269,49 @@ public class Tank {
 }
 
 class MainTank extends Tank {
+	// 子弹容器
+	private static final List<Missile> missileList = new ArrayList<Missile>();
+
+	public static List<Missile> getMissileList() {
+		return missileList;
+	}
+
+	@Override
+	public void draw(Graphics g) {
+		super.draw(g);
+	}
+
+	// 对主坦克的操作
+	public void keyPress(KeyEvent e) {
+		switch (e.getKeyCode()) {
+		case (KeyEvent.VK_UP):// 箭头上按下
+			setDir(Direction.U);
+			move();
+			break;
+
+		case (KeyEvent.VK_RIGHT):// 箭头右按下
+			setDir(Direction.R);
+			move();
+			break;
+		case (KeyEvent.VK_DOWN):// 箭头下按下
+			setDir(Direction.D);
+			move();
+			break;
+		case (KeyEvent.VK_LEFT):// 箭头左按下
+			setDir(Direction.L);
+			move();
+			break;
+		case (KeyEvent.VK_ENTER):// 发子弹
+			// 可以加声音
+			missileList.add(fire());
+			break;
+		}
+	}
 
 	MainTank() {
+	}
 
+	MainTank(TankClient tc) {
+		super(tc);
 	}
 }

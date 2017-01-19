@@ -8,7 +8,6 @@ import java.awt.event.KeyAdapter;
 import java.awt.event.KeyEvent;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
-import java.util.ArrayList;
 import java.util.List;
 
 import javax.swing.ImageIcon;
@@ -19,19 +18,24 @@ import javax.swing.ImageIcon;
  */
 // JFrame 默认有一个contentPane面板，颜色默认白色
 public class TankClient extends Frame {
-	MainTank tank = new MainTank();// 新建坦克对象
-
+	MainTank tank = new MainTank(this);// 新建坦克对象
 	Wall wall = new Wall();
-
 	// Missile m = null;
-
-	List<Missile> missileList = new ArrayList<Missile>();
 
 	// Image tankCurImage = tank.getTankUImage();// 保存当前坦克图像
 	// 虚拟图片，将要画的内容画到图片上，一次性显示出来
 	Image virtualImage = null;
 	private static final int WINDOW_WIDTH = 800;
 	private static final int WINDOW_HEIGHT = 600;
+	private final List<Missile> missileList = tank.getMissileList();
+
+	public static int getWindowWidth() {
+		return WINDOW_WIDTH;
+	}
+
+	public static int getWindowHeight() {
+		return WINDOW_HEIGHT;
+	}
 
 	public void drawWall(Graphics g) {
 		for (int i = 0; i < WINDOW_WIDTH; i += 40) {
@@ -45,21 +49,20 @@ public class TankClient extends Frame {
 	@Override
 	public void paint(Graphics g) {
 
-		g.drawImage(tank.getTankCurImage(), tank.getCurXPos(),
-				tank.getCurYPos(), Tank.getTankWidth(), Tank.getTankHeight(),
-				getBackground(), null);
+		tank.draw(g);
+		// 画出所有子弹
 		if (missileList.size() > 0) {
-			for (Missile m : missileList) {
-				g.drawImage(m.getImage(), m.getCurX(), m.getCurY(), m.getR(),
-						m.getR(), null);
-				m.move();
+			// 没有并发异常，用foreach有并发异常
+			for (int i = 0; i < missileList.size(); i++) {
+				missileList.get(i).draw(g);
+				missileList.get(i).move();
 			}
 		}
-		// if (m != null) {
-		// g.drawImage(m.getImage(), m.getCurX(), m.getCurY(), m.getR(),
-		// m.getR(), null);
-		// m.move();
-		// }
+		// 画出子弹个数
+		Color c = g.getColor();
+		g.setColor(Color.RED);
+		g.drawString("Missile count:" + missileList.size(), 10, 50);
+		g.setColor(c);
 		// drawWall(g);
 	}
 
@@ -71,13 +74,14 @@ public class TankClient extends Frame {
 		}
 		Graphics virtualG = virtualImage.getGraphics();// 获得图片的画笔
 		Color c = virtualG.getColor();
+
 		virtualG.setColor(this.getBackground());
 		virtualG.fillRect(0, 0, WINDOW_WIDTH, WINDOW_HEIGHT);
+
 		virtualG.setColor(c);
 		paint(virtualG);
 
 		g.drawImage(virtualImage, 0, 0, WINDOW_WIDTH, WINDOW_HEIGHT, null);
-
 	}
 
 	public void getFrame() {
@@ -92,7 +96,6 @@ public class TankClient extends Frame {
 		this.setIconImage(image.getImage());// 设置图标
 		this.setTitle("TankWar");
 		// **********************************************
-
 		// 设置墙
 
 		// ----------------------------------------------
@@ -110,9 +113,17 @@ public class TankClient extends Frame {
 		this.setResizable(false);// 不可改变大小
 		this.setVisible(true);
 
+		// 重构 ： 将按键监听加入坦克类中-》元素碰撞
+		// 监听按键消息
+		addKeyListener(new KeyAdapter() {
+
+			@Override
+			public void keyPressed(KeyEvent e) {
+				tank.keyPress(e);
+			}
+		});
 		// 添加窗口关闭监听器
 		this.addWindowListener(new WindowAdapter() {
-
 			@Override
 			public void windowClosing(WindowEvent e) {
 				setVisible(false);
@@ -120,52 +131,17 @@ public class TankClient extends Frame {
 			}
 
 		});
-		// 监听按键消息
-		addKeyListener(new KeyAdapter() {
-			@Override
-			public void keyPressed(KeyEvent e) {
-
-				switch (e.getKeyCode()) {
-				case (KeyEvent.VK_UP):// 箭头上按下
-					tank.setDir(Direction.U);
-					tank.move();
-
-					break;
-
-				case (KeyEvent.VK_RIGHT):// 箭头右按下
-					tank.setDir(Direction.R);
-					tank.move();
-
-					break;
-				case (KeyEvent.VK_DOWN):// 箭头下按下
-					tank.setDir(Direction.D);
-					tank.move();
-
-					break;
-				case (KeyEvent.VK_LEFT):// 箭头左按下
-					tank.setDir(Direction.L);
-					tank.move();
-
-					break;
-				case (KeyEvent.VK_ENTER):// 发子弹
-					// 可以加声音
-					missileList.add(tank.fire());
-					break;
-				}
-			}
-
-		});
-
 		// new Thread(new TankMoveThread()).start();
 		new Thread(new PaintThread()).start();
 	}
 
 	class PaintThread implements Runnable {
-
+		// 每过40MS，重画界面
 		@Override
 		public void run() {
 			while (true) {
 				repaint();
+				// 延迟40ms重画所有界面
 				try {
 					Thread.sleep(40);
 				} catch (InterruptedException e) {

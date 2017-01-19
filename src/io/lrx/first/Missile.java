@@ -1,5 +1,6 @@
 package io.lrx.first;
 
+import java.awt.Graphics;
 import java.awt.Image;
 
 import javax.swing.ImageIcon;
@@ -15,7 +16,14 @@ public class Missile {
 	private final Direction dir;
 
 	private static final int SPEED = 10;
-	private static final int R = 50;// 子弹半径
+	private static final int R = 30;// 子弹半径
+
+	TankClient tc;
+	private boolean live = true;
+
+	public boolean isLive() {
+		return live;
+	}
 
 	public static int getR() {
 		return R;
@@ -64,12 +72,27 @@ public class Missile {
 			curX -= SPEED;
 			break;
 		}
+		// 子弹越界则去除子弹
+		if (curX < 0 || curY < 0 || curX > tc.getWindowWidth()
+				|| curY > tc.getWindowHeight()) {
+			live = false;
+			MainTank.getMissileList().remove(this);
+		}
 	}
 
 	public Missile(int curX, int curY, Direction dir) {
 		this.curX = curX;
 		this.curY = curY;
 		this.dir = dir;
+	}
+
+	public Missile(int curX, int curY, Direction dir, TankClient tc) {
+		this(curX, curY, dir);
+		this.tc = tc;
+	}
+
+	public void draw(Graphics g) {
+		g.drawImage(getImage(), getCurX(), getCurY(), getR(), getR(), null);
 	}
 
 }
