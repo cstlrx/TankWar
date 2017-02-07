@@ -8,6 +8,7 @@ import java.awt.event.KeyAdapter;
 import java.awt.event.KeyEvent;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
+import java.util.ArrayList;
 import java.util.List;
 
 import javax.swing.ImageIcon;
@@ -18,9 +19,13 @@ import javax.swing.ImageIcon;
  */
 // JFrame 默认有一个contentPane面板，颜色默认白色
 public class TankClient extends Frame {
-	MainTank tank = new MainTank(this);// 新建坦克对象
-	Wall wall = new Wall();
-	// Missile m = null;
+	MainTank tank = new MainTank(300, 400, this);// 新建坦克对象
+	// 存放存活坦克的列表
+	public static List<Tank> liveTank = new ArrayList<Tank>();
+	// public static List<Tank> liveEnemyTank = new ArrayList<Tank>();
+	public static List<Missile> liveMissile = new ArrayList<Missile>();
+	public static List<Explode> liveExplode = new ArrayList<Explode>();
+	public static List<Wall> liveWall = new ArrayList<Wall>();
 
 	// Image tankCurImage = tank.getTankUImage();// 保存当前坦克图像
 	// 虚拟图片，将要画的内容画到图片上，一次性显示出来
@@ -37,12 +42,12 @@ public class TankClient extends Frame {
 		return WINDOW_HEIGHT;
 	}
 
-	public void drawWall(Graphics g) {
-		for (int i = 0; i < WINDOW_WIDTH; i += 40) {
-			for (int j = 0; j < WINDOW_HEIGHT; j += 100)
-				g.drawImage(wall.getSteelWall(), i, j, Wall.getWallWidth(),
-						Wall.getWallHeight(), null);
-		}
+	public void drawGameOver(Graphics g) {
+		Image img = new ImageIcon(System.getProperty("user.dir")
+				+ "\\img\\over.gif").getImage();
+		g.drawImage(img, this.getWindowWidth() / 2 - img.getWidth(null),
+				this.getWindowHeight() / 2 - img.getHeight(null), 100, 100,
+				null);
 	}
 
 	// 重写paint方法
@@ -50,18 +55,58 @@ public class TankClient extends Frame {
 	public void paint(Graphics g) {
 
 		tank.draw(g);
+		if (!tank.isLive()) {
+			drawGameOver(g);
+			// System.exit(0);
+		}
+		// eTank.draw(g);
+		for (int i = 0; i < liveExplode.size(); i++) {
+			liveExplode.get(i).draw(g);
+			// liveExplode.remove(i);
+		}
+		for (int i = 0; i < liveWall.size(); i++) {
+			Wall w = liveWall.get(i);
+			if (!w.isLive()) {
+				liveWall.remove(i);
+				continue;
+			}
+			w.draw(g);
+			// liveExplode.remove(i);
+		}
+		for (int i = 1; i < liveTank.size(); i++) {
+			if (!liveTank.get(i).isLive()) {
+				liveTank.remove(i);
+				continue;
+			}
+			liveTank.get(i).draw(g);
+		}
+		// m.draw(g);
+		// m.move();
 		// 画出所有子弹
 		if (missileList.size() > 0) {
 			// 没有并发异常，用foreach有并发异常
 			for (int i = 0; i < missileList.size(); i++) {
+				if (!missileList.get(i).isLive()) {// 子弹死亡
+					missileList.remove(i);
+					continue;
+				}
 				missileList.get(i).draw(g);
 				missileList.get(i).move();
 			}
+		}
+		for (int i = 0; i < liveMissile.size(); i++) {
+			if (!liveMissile.get(i).isLive()) {// 子弹死亡
+				liveMissile.remove(i);
+				continue;
+			}
+			liveMissile.get(i).draw(g);
+			liveMissile.get(i).move();
 		}
 		// 画出子弹个数
 		Color c = g.getColor();
 		g.setColor(Color.RED);
 		g.drawString("Missile count:" + missileList.size(), 10, 50);
+		g.drawString("Tank now:" + liveTank.size(), 10, 70);
 		g.setColor(c);
 		// drawWall(g);
 	}
@@ -131,8 +176,52 @@ public class TankClient extends Frame {
 			}
 
 		});
+		liveTank.add(tank);// 下标0
+		// liveTank.add(eTank);
 		// new Thread(new TankMoveThread()).start();
+
+		initEnemyTank();// 下标1-size()
+		initWall();
 		new Thread(new PaintThread()).start();
+		new Thread(new EnemyThread()).start();
+	}
+
+	public void initEnemyTank() {
+		for (int i = 0; i < 10; i++) {
+			liveTank.add(new EnemyTank(i * 50, 30, this));
+		}
+	}
+
+	public void initWall() {
+		for (int i = 0; i < 30; i++) {
+			liveWall.add(new Wall(i * 40, 30 + 41, this, false));
+		}
+		for (int i = 0; i < 6; i++) {
+			liveWall.add(new Wall(i * 40 + 100, 300, this, true));
+		}
+	}
+
+	// 既然是坦克的移动规律，自然要在坦克类中定义，面向对象
+	class EnemyThread implements Runnable {
+
+		@Override
+		public void run() {
+			while (liveTank.size() > 1) {
+				for (int i = 1; i < liveTank.size(); i++) {
+					Tank t = liveTank.get(i);
+					// t.setDir(array[(int) (Math.random() * 4)]);
+					// liveMissile.add(t.fire());
+					t.move();
+
+				}
+				try {
+					Thread.sleep(100);
+				} catch (InterruptedException e) {
+					e.printStackTrace();
+				}
+			}
+
+		}
 	}
 
 	class PaintThread implements Runnable {
@@ -141,12 +230,14 @@ public class TankClient extends Frame {
 		public void run() {
 			while (true) {
 				repaint();
+
 				// 延迟40ms重画所有界面
 				try {
 					Thread.sleep(40);
 				} catch (InterruptedException e) {
 					e.printStackTrace();
 				}
+
 			}
 		}
 
@@ -163,5 +254,6 @@ public class TankClient extends Frame {
 	public static void main(String[] args) {
 		TankClient t = new TankClient();
 		t.getFrame();
+
 	}
 }
